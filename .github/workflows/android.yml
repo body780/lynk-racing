@@ -1,0 +1,40 @@
+name: 编译 Android APK
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools platforms;android-35 build-tools;35.0.0'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: 运行逻辑测试
+        run: bash scripts/test.sh
+      - name: 编译并执行 Android Lint
+        run: ./gradlew --no-daemon assembleDebug lintDebug
+      - name: 验证 APK 签名
+        run: |
+          cp app/build/outputs/apk/debug/app-debug.apk LYNK-RACING.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose LYNK-RACING.apk
+          sha256sum LYNK-RACING.apk > LYNK-RACING.apk.sha256
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LYNK-RACING-APK
+          path: |
+            LYNK-RACING.apk
+            LYNK-RACING.apk.sha256
+          if-no-files-found: error
